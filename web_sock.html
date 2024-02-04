@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" ></meta>
+
+<title>My webserver experiments</title>
+
+<script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+
+<script>
+
+  var socket = io();
+
+  var message_to_be_sent = "What a dick";
+  var message_to_be_recieved = "gibe msg";
+  socket.emit('sampleEvent', message_to_be_sent);
+  socket.emit('sampleEvent2', message_to_be_recieved);
+
+
+  socket.on('sampleEvent', function(msg){
+    console.log(msg);
+  });
+
+  socket.on('sampleEvent2', function(msg){
+    console.log("\n" + msg);
+  });
+
+
+</script>
+
+</head>
+
+<body>
+
+  <p>hello world</p>
+  <p id="message">cpp message here: </p>
+
+</body>
+
+
+</html>
