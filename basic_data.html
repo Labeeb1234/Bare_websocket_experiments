@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" ></meta>
+
+<!-- including roslibrary for js-->
+<script src="./roslibjs/build/roslib.js"></script>
+<script src="./roslibjs/build/roslib.min.js"></script>
+
+
+<!-- very basic example of webpage <==> ROS2 communication-->
+<title>ROS PROJECT</title>
+
+<script>
+
+// class of bot motions
+class Motion{
+    constructor(x_vel, y_vel, yaw_vel){
+        this.x_vel = x_vel;
+        this.y_vel = y_vel;
+        this.yaw_vel = yaw_vel;
+        this.left = true;
+
+    }
+    
+    forwardMotion(){
+        this.x_vel++;
+        this.y_vel = 0.0;
+        this.yaw_vel = 0.0;
+        PublishCmdVel();
+        
+    }
+    strafeMotion(){
+        if(this.left == true){
+            this.x_vel = 0.0;
+            this.y_vel++;
+            this.yaw_vel = 0.0;
+            PublishCmdVel();
+        }
+    }
+    rotateMotion(){
+        this.x_vel = 0.0;
+        this.y_vel = 0.0;
+        this.yaw_vel++;
+        PublishCmdVel();
+
+    }
+
+    stopBot(){
+        this.x_vel = 0.0;
+        this.y_vel = 0.0;
+        this.yaw_vel = 0.0;
+        PublishCmdVel();
+
+    }
+
+};
+
+
+// custom function to convert quaternion angles to euler angles for understanding purposes
+function quaternionToEuler(qx, qy, qz, qw) {
+    // Roll (x-axis rotation)
+    var sinr_cosp = 2 * (qw * qx + qy * qz);
+    var cosr_cosp = 1 - 2 * (qx * qx + qy * qy);
+    var roll = Math.atan2(sinr_cosp, cosr_cosp);
+
+    // Pitch (y-axis rotation)
+    var sinp = 2 * (qw * qy - qz * qx);
+    var pitch;
+    if (Math.abs(sinp) >= 1) {
+        pitch = Math.sign(sinp) * (Math.PI / 2); // Use 90 degrees if out of range
+    } else {
+        pitch = Math.asin(sinp);
+    }
+
+    // Yaw (z-axis rotation)
+    var siny_cosp = 2 * (qw * qz + qx * qy);
+    var cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
+    var yaw = Math.atan2(siny_cosp, cosy_cosp);
+
+    // Convert angles from radians to degrees (optional)
+    // roll = roll * (180 / Math.PI);
+    // pitch = pitch * (180 / Math.PI);
+    // yaw = yaw * (180 / Math.PI);
+
+    roll = roll;
+    pitch = pitch;
+    yaw = yaw;
+
+    return { roll: roll, pitch: pitch, yaw: yaw };
+}
+
+
+
+// Main program starts here
+
+// global velocity variable declared in the begining 
+var velX = 1.0;
+var velY = 1.0;
+var velYaw = 1.0;
+
+// creating an instance of motion class
+var AmrBot = new Motion(velX, velY, velYaw);
+// creating an instance of rosjs class
+var ros = new ROSLIB.Ros();
+// Create a connection to the ros2bridge WebSocket server
+ros.connect('ws://localhost:9090');
+
+var frameId;
+var robotBaseFrameId;
+var poseX;
+var poseY;
+
+
+// creating a publisher to the topic "/cmd_vel"
+var cmdVel = new ROSLIB.Topic({
+    ros: ros,
+    name: 'cmd_vel',
+    messageType: 'geometry_msgs/Twist'
+});
+
+
+function PublishCmdVel(){
+    var cmd_msg = new ROSLIB.Message({
+        linear: {
+            x: AmrBot.x_vel,
+            y: AmrBot.y_vel,
+            z: 0.0
+
+        },
+        angular: {
+            x: 0.0,
+            y: 0.0,
+            z: AmrBot.yaw_vel
+
+        }
+    });
+    // finally publishing cmd msg to the topic /cmd_vel
+    cmdVel.publish(cmd_msg);
+}
+
+// subscribing to cmdVel topic
+cmdVel.subscribe(function(msg){
+    
+    // robot frame velocities
+    var u = msg.linear.x;
+    var v = msg.linear.y;
+    var r = msg.angular.z;
+
+    document.getElementById("robotVelocityX").innerHTML = "x_vel: "+ u;
+    document.getElementById("robotVelocityY").innerHTML = "y_vel: "+ v;
+    document.getElementById("robotVelocityRot").innerHTML = "yaw_vel: "+ r;
+
+
+});
+
+
+// subscribing to odom feeback from amr_bot(simualtion data)
+var odomMsg = new ROSLIB.Topic({
+    ros: ros,
+    name: 'odom',
+    messageType: 'nav_msgs/Odometry'
+});
+// subscriber callback funtion to display odom data on html webpage
+odomMsg.subscribe(function(msg){
+    
+    frameId = msg.header.frame_id;
+    robotBaseFrameId = msg.child_frame_id;
+
+    // position of the robot frame wrt the gazebo world frame/odom frame in this case
+    poseX = msg.pose.pose.position.x;
+    poseY = msg.pose.pose.position.y;
+
+    var quaternions = {
+        qx: msg.pose.pose.orientation.x,
+        qy: msg.pose.pose.orientation.y,
+        qz: msg.pose.pose.orientation.z,
+        qw: msg.pose.pose.orientation.w 
+
+    };
+
+    var EulerAngles = {
+        roll: 0.0,
+        pitch: 0.0,
+        yaw: quaternionToEuler(quaternions.qx, quaternions.qy, quaternions.qz, quaternions.qw).yaw
+    };
+        
+    poseX = parseFloat(poseX);
+    poseY = parseFloat(poseY);
+    EulerAngles.yaw = parseFloat(EulerAngles.yaw);
+    
+    document.getElementById('poseX-display').innerHTML = 'PoseX: ' + poseX.toFixed(5);
+    document.getElementById('poseY-display').innerHTML = 'PoseY: ' + poseY.toFixed(5);
+    document.getElementById('poseYaw-display').innerHTML = 'PoseYaw(in rad): ' + EulerAngles.yaw.toFixed(5);
+
+
+});
+
+
+
+</script>
+</head>
+
+
+<body>
+
+<h1 >
+    ROS2 Basic topic data streaming
+</h1>
+
+<p id="statement-1">This is simple demonstration of sending data from this html page to a ROS2 topic and to display a sample feedback from ROS2-gazebo sim</p>
+<button id="start publishing twist message" onclick="PublishCmdVel()">Activate cmd_vel Publisher node</button>
+
+<ul>
+    <button id="forward" onclick="AmrBot.forwardMotion()">forward</button>
+    <button id="strafe_left" onclick="AmrBot.strafeMotion()">strafe_left</button>
+    <button id="rotate_motion" onclick="AmrBot.rotateMotion()">rotate_left</button>
+    <button id="stop_bot" onclick="AmrBot.stopBot()">stop_bot</button>
+</ul>
+
+<p> Robot Pose Data</p>
+<div id="poseX-display">X: </div>
+<div id="poseY-display">Y: </div>
+<div id="poseYaw-display">bot heading: </div>
+
+<p>Robot Velocity Data</p>
+<div id="robotVelocityX">xVel: </div>
+<div id="robotVelocityY">yVel: </div>
+<div id="robotVelocityRot">yawVel: </div>
+
+<p>ROS2 Image Streaming(Robot Perspective)</p>
+<img id="ImageStream" src="http://localhost:8080/stream?topic=/camera1/image_raw" alt="Image Stream" height="500" width="500">
+
+</body>
+
+
+
+
+</html>
