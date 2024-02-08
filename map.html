@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+
+<script src="./roslibjs/build/roslib.js"></script>
+<script src="./roslibjs/build/roslib.min.js"></script>
+
+<script>
+
+// angle output is in radians
+function quaternionToEulerAngles(quaternion) {
+    // Assuming quaternion is in the format {x, y, z, w}
+    var pitch = Math.atan2(2 * (quaternion.y * quaternion.z + quaternion.w * quaternion.x), quaternion.w * quaternion.w - quaternion.x * quaternion.x - quaternion.y * quaternion.y + quaternion.z * quaternion.z);
+    var yaw = Math.asin(-2 * (quaternion.x * quaternion.z - quaternion.w * quaternion.y));
+    var roll = Math.atan2(2 * (quaternion.x * quaternion.y + quaternion.w * quaternion.z), quaternion.w * quaternion.w + quaternion.x * quaternion.x - quaternion.y * quaternion.y - quaternion.z * quaternion.z);
+
+    return {
+        pitch: pitch,
+        yaw: yaw,
+        roll: roll
+    };
+}
+
+// creating an instance of roslibjs class
+var ros = new ROSLIB.Ros();
+// Create a connection to the rosbridge WebSocket server
+ros.connect('ws://localhost:9090');
+
+var mapData = new ROSLIB.Topic({
+    ros: ros,
+    name: '/map',
+    message: 'nav_msgs/OccupancyGrid' 
+});
+
+function createBitMap(options){
+    var message = options.message;
+    var canvas = document.createElement("canvas");
+    var context = canvas.getContext("2d");
+
+    canvas.width = options.width;
+    canvas.height = options.height;
+    var zoomLevel = options.zoomLevel;
+
+    var imageData = context.createImageData(canvas.width, canvas.height);
+    for(var row=0; row<canvas.height; row++){
+        for(var col=0; col<canvas.width; col++){
+            // determine the index into the map data
+            var mapI = col + ((canvas.height - row - 1) * canvas.width);
+            // determine the value
+            var data = message.data[mapI];
+            var val;
+            if (data === 100) {
+                val = 0;
+            } else if (data === 0) {
+                val = 255;
+            } else {
+                val = 127;
+            }
+
+            // determine the index into the image data array
+            var i = (col + (row * canvas.width)) * 4;
+            // r
+            imageData.data[i] = val;
+            // g
+            imageData.data[++i] = val;
+            // b
+            imageData.data[++i] = val;
+            // a
+            imageData.data[++i] = 255;
+
+        }
+    }
+    context.putImageData(imageData, 0, 0);
+
+    var bitmap = new Image();
+    bitmap.src = canvas.toDataURL("image/png");
+    bitmap.style.position = 'absolute';
+    bitmap.style.left = options.position.x + 300.0 + 'px';
+    bitmap.style.top = options.position.y + 300.0 + 'px';
+    bitmap.style.transform = 'rotate('+ options.orientation+270 + 'deg)';
+    bitmap.style.width = zoomLevel*options.width + 'px';
+    bitmap.style.height = zoomLevel*options.height + 'px';
+
+
+    document.body.appendChild(bitmap);
+
+}
+
+mapData.subscribe(function(msg){
+    var position = msg.info.origin.position;
+    var orientation = msg.info.origin.orientation;
+    var euler = quaternionToEulerAngles(orientation);
+    var width = msg.info.width;
+    var height = msg.info.height;
+    var message = msg;
+
+    var bitmapOptions = {
+        position: position,
+        orientation: euler.yaw*(3.14/180),
+        width: width,
+        height: height,
+        message: msg,
+        zoomLevel: 3
+
+    };
+
+    createBitMap(bitmapOptions);
+
+});
+
+
+</script>
+
+</head>
+
+<body>    
+    <p> ROS2 Mapping(SLAM)  </p>    
+
+</body>
+
+
+</html>
