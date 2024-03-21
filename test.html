@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+
+    <title>ROS Drone Web Demo </title>
+
+    <script>
+
+        var ros = new ROSLIB.Ros();
+            // Create a connection to the rosbridge WebSocket server.
+        ros.connect('ws://localhost:9090');
+        
+
+        // Drone state subscription
+        var DroneState = new ROSLIB.Topic({
+            ros: ros,
+            name: "/mavros/state",
+            messageType: "mavros_msgs/State" 
+        });
+      
+        DroneState.subscribe(function(msg){
+            var ArmingState;
+            if(msg.armed){
+                ArmingState = "Drone Armed";
+            }
+            else{
+                ArmingState = "Drone Disarmed";
+
+            }
+            var DroneMode = msg.mode;
+
+            console.log(armingState);
+            console.log(DroneMode);
+
+            document.getElementById("Drone Arming State").innerHTML = 'Drone arm state: ' + ArmingState;
+            document.getElementById("Drone Mode").innerHTML = 'Drone mode' + DroneMode;
+
+
+        });
+    </script>
+
+
+</head>
+
+
+
+<body>
+    
+    <h1>ROS Drone Web Demo </h1>
+    <p> A simple entry point for ROS1 to web integration for drone</p>
+
+    <button onclick="DroneStateCallback()">Drone State Client</button>
+
+    <div id="Drone Arming State">Drone Arming State: </div>
+    <div id="Drone Mode">Drone Mode: </div>
+
+
+
+</body>
+
+
+
+
+</html>
