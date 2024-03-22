@@ -31,14 +31,36 @@
             }
             var DroneMode = msg.mode;
 
-            console.log(armingState);
+            console.log(ArmingState);
             console.log(DroneMode);
 
-            document.getElementById("Drone Arming State").innerHTML = 'Drone arm state: ' + ArmingState;
-            document.getElementById("Drone Mode").innerHTML = 'Drone mode' + DroneMode;
+            document.getElementById("Drone Arming State").innerHTML = '<span style="font-weight: bold;">Drone arm state: </span>'+ ArmingState;
+            document.getElementById("Drone Mode").innerHTML = '<span style="font-weight: bold;">Drone mode: </span>'+ DroneMode;
 
 
         });
+
+        // creating a client request to arm drone 
+        function armDrone() {
+            var armService = new ROSLIB.Service({
+                ros: ros,
+                name: '/mavros/cmd/arming',
+                serviceType: 'mavros_msgs/CommandBool'
+            });
+
+            var request = new ROSLIB.ServiceRequest({
+                value: true // Set to true to arm the drone
+            });
+
+            armService.callService(request, function (result) {
+                console.log('Drone arming request sent:', result);
+            });
+        }
+
+        
+
+
+
     </script>
 
 
@@ -51,10 +73,10 @@
     <h1>ROS Drone Web Demo </h1>
     <p> A simple entry point for ROS1 to web integration for drone</p>
 
-    <button onclick="DroneStateCallback()">Drone State Client</button>
-
-    <div id="Drone Arming State">Drone Arming State: </div>
+    <div id="Drone Arming State" >Drone Arming State: </div>
     <div id="Drone Mode">Drone Mode: </div>
+
+    <button onclick="armDrone()" style="font-weight: bold;">ArmDrone</button>
 
 
 
